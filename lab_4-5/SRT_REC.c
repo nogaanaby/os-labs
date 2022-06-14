@@ -1,15 +1,7 @@
 #include "Process.h"
 
 /*************************************BOTH***********************************/
-void print_processes(int num_of_processes, Process *processes){
-    printf("Processes_id   Arrival_time   Burst_time   Complition_time   Waiting_time   Turn_around_time\n");
-    for(int i=0;i<num_of_processes;i++){
-        calc_WT_and_TAT(processes+i);
-        print_process(processes+i);
-    }
 
-    print_avges(processes, num_of_processes);
-}
 
 void print_process(Process *p){
     printf("    %d              %d           %d              %d                %d                %d       \n", p->pid,p->arrival_time, p->burst_time, p->complition_time, p->waiting_time, p->turn_around_time);
@@ -17,7 +9,7 @@ void print_process(Process *p){
 
 void calc_WT_and_TAT(Process *p){
     p->turn_around_time=p->complition_time - p->arrival_time;
-    p->waiting_time= p->turn_around_time - p->burst_time-1;
+    p->waiting_time= p->turn_around_time - p->burst_time;
 
 }
 
@@ -32,6 +24,15 @@ void print_avges(Process *processes,int num_of_processes){
     printf(" avg wait time: %d \n",total_wait_time/num_of_processes);
     printf(" avg turn around time: %d \n",total_turn_around_time/num_of_processes);
     printf(" throught-put: %d \n",throughtput);
+}
+void print_processes(int num_of_processes, Process *processes){
+    printf("Processes_id   Arrival_time   Burst_time   Complition_time   Waiting_time   Turn_around_time\n");
+    for(int i=0;i<num_of_processes;i++){
+        calc_WT_and_TAT(processes+i);
+        print_process(processes+i);
+    }
+
+    print_avges(processes, num_of_processes);
 }
 
 void reset_processes(int num_of_processes,Process *processes){
@@ -86,20 +87,41 @@ int SRT(int time_counter, Process *processes,int num_of_processes_left, int pid,
 
 }
 
+int SPN(int time_counter, Process *processes,int num_of_processes_left, int pid, int total_processes){
+    if(num_of_processes_left!=0){
+        update_hold_status(time_counter-1,processes, total_processes);
+        if( (processes+pid)->burst_time == (processes+pid)->got_cpu_time && !(processes+pid)->finish){
+            printf("%d finished at %d \n", (processes+pid)->pid, time_counter);
+            (processes+pid)->complition_time=time_counter;
+            (processes+pid)->finish=true;
+            (processes+pid)->hold=false;
+            printf(" num_of_processes_left: %d \n",num_of_processes_left-1);
+            int next_pid=choose_shortest_process(time_counter, processes,total_processes, pid);
+            SPN(time_counter, processes, num_of_processes_left-1, next_pid, total_processes);
+        }else{
+            (processes+pid)->got_cpu_time++;
+            printf(" pid: %d, current time: %d, cpu time left: %d\n",(processes+pid)->pid,time_counter,(processes+pid)->burst_time-(processes+pid)->got_cpu_time);
+            SPN(time_counter+1, processes, num_of_processes_left, pid, total_processes);
+        }
+    }
+    return time_counter;
+
+}
+
 
 /************************************************************************/
 /*********************************RR************************************/
-int RR( int total_processes,Process *processes,int quantum){
-    int num_of_processes_left=total_processes;
-    int i=0;
-    while(num_of_processes_left!=0){
-        if((processes+i)->burst_time<=quantum){
-            (processes+i)->got_cpu_time=(processes+i)->burst_time;
-        }else{
-            (processes+i)->got_cpu_time=quantum;
-        }
-    }
-}
+// int RR( int total_processes,Process *processes,int quantum){
+//     int num_of_processes_left=total_processes;
+//     int i=0;
+//     while(num_of_processes_left!=0){
+//         if((processes+i)->burst_time<=quantum){
+//             (processes+i)->got_cpu_time=(processes+i)->burst_time;
+//         }else{
+//             (processes+i)->got_cpu_time=quantum;
+//         }
+//     }
+// }
 
 
 /************************************************************************/
@@ -134,17 +156,17 @@ int main(){
         printf("\n");
     }
 
-    printf("please type the time quantum limit for RR: \n");
-    scanf("%d",&quantum);
+    // printf("please type the time quantum limit for RR: \n");
+    // scanf("%d",&quantum);
 
 
-    printf("***********************RR**************************\n");
-    RR();
-    print_processes(num_of_processes,processes);
+    // printf("***********************RR**************************\n");
+    // RR();
+    // print_processes(num_of_processes,processes);
 
-    reset_processes(num_of_processes,processes);
+    // reset_processes(num_of_processes,processes);
 
     printf("***********************SRT**************************\n");
-    SRT(0,processes,num_of_processes,0,num_of_processes);
+    SPN(0,processes,num_of_processes,0,num_of_processes);
     print_processes(num_of_processes,processes);
 }
